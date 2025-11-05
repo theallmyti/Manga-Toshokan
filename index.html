@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Manga Tracker Cloud</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body{background:#0f172a;color:#e2e8f0;padding:1.5rem;}
+.card{background:#1e293b;border:none;}
+a{color:#7dd3fc;text-decoration:none;}
+a:hover{text-decoration:underline;}
+input,button{border-radius:0.4rem!important;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2 class="mb-3">🌸 Manga Tracker Cloud</h2>
+  <div id="auth" class="mb-4"></div>
+
+  <div id="app" style="display:none">
+    <div class="d-flex mb-3 gap-2">
+      <input id="newTitle" class="form-control" placeholder="Add new manga title">
+      <button id="addBtn" class="btn btn-success">Add</button>
+    </div>
+    <div id="list" class="row g-3"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://qdbfokgiwrococaxifkn.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYmZva2dpd3JvY29jYXhpZmtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNDU0MTcsImV4cCI6MjA3NzkyMTQxN30.rQz9t-NnU_Ahn-8avkUlhry4BFYyw6PVfgZNo-KFK1A";
+const supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function checkSession(){
+  const { data:{ session } } = await supabase.auth.getSession();
+  if(session) showApp(session.user); else showLogin();
+}
+
+function showLogin(){
+  const div=document.getElementById("auth");
+  div.innerHTML=`
+    <div class="card p-3 mb-3">
+      <h5>Login or Sign Up</h5>
+      <input id="email" class="form-control mb-2" placeholder="Email">
+      <input id="password" type="password" class="form-control mb-2" placeholder="Password">
+      <div class="d-flex gap-2">
+        <button class="btn btn-primary flex-fill" id="loginBtn">Login</button>
+        <button class="btn btn-outline-light flex-fill" id="signupBtn">Sign Up</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("loginBtn").onclick=login;
+  document.getElementById("signupBtn").onclick=signup;
+}
+
+async function login(){
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value.trim();
+  const { data, error }=await supabase.auth.signInWithPassword({ email, password });
+  if(error) alert(error.message); else showApp(data.user);
+}
+
+async function signup(){
+  const email=document.getElementById("email").value.trim();
+  const password=document.getElementById("password").value.trim();
+  const { error }=await supabase.auth.signUp({ email, password });
+  if(error) alert(error.message);
+  else alert("Check your email for a verification link, then log in.");
+}
+
+async function showApp(user){
+  document.getElementById("auth").innerHTML=
+    `Logged in as ${user.email}
+     <button class="btn btn-sm btn-outline-danger ms-2" id="logoutBtn">Logout</button>`;
+  document.getElementById("logoutBtn").onclick=async()=>{await supabase.auth.signOut();location.reload();};
+  document.getElementById("app").style.display="block";
+  document.getElementById("addBtn").onclick=addManga;
+  loadManga();
+}
+
+async function loadManga(){
+  const { data, error } = await supabase.from("manga").select("*").order("id",{ascending:true});
+  if(error){console.error(error);return;}
+  render(data);
+}
+
+function render(items){
+  const c=document.getElementById("list");
+  c.innerHTML="";
+  if(!items.length){c.innerHTML="<p class='text-muted'>No manga added yet.</p>";return;}
+  items.forEach(it=>{
+    const col=document.createElement("div");col.className="col-12 col-md-6 col-lg-4";
+    const card=document.createElement("div");card.className="card p-3";
+    card.innerHTML=`
+      <h5>${it.title}</h5>
+      <div>Chapter ${it.chapter ?? 0} • ${it.status ?? "Ongoing"}</div>
+      ${it.url ? `<a href="${it.url}" target="_blank">Read</a>` : ""}
+      <div class="mt-2 d-flex gap-2">
+        <button class="btn btn-sm btn-success">+1</button>
+        <button class="btn btn-sm btn-secondary">Set...</button>
+        <button class="btn btn-sm btn-outline-light">Done</button>
+        <button class="btn btn-sm btn-danger">🗑️</button>
+      </div>`;
+    const [plus,set,done,del]=card.querySelectorAll("button");
+    plus.onclick=()=>updateChapter(it.id,it.chapter+1);
+    set.onclick=()=>{const val=prompt("Set chapter number:",it.chapter);if(val!==null)updateChapter(it.id,Number(val));};
+    done.onclick=()=>updateStatus(it.id,"Completed");
+    del.onclick=()=>deleteManga(it.id);
+    col.append(card); c.append(col);
+  });
+}
+
+async function addManga(){
+  const title=document.getElementById("newTitle").value.trim();
+  if(!title) return;
+  const { data:{ user } } = await supabase.auth.getUser();
+  await supabase.from("manga").insert({ user_id:user.id, title });
+  document.getElementById("newTitle").value="";
+  loadManga();
+}
+
+async function updateChapter(id,val){
+  await supabase.from("manga").update({chapter:val}).eq("id",id);
+  loadManga();
+}
+
+async function updateStatus(id,val){
+  await supabase.from("manga").update({status:val}).eq("id",id);
+  loadManga();
+}
+
+async function deleteManga(id){
+  if(confirm("Delete this entry?")){
+    await supabase.from("manga").delete().eq("id",id);
+    loadManga();
+  }
+}
+
+checkSession();
+</script>
+</body>
+</html>
