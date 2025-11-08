@@ -39,12 +39,24 @@ const el = {
   refresh: $("#refreshBtn"),
   resultCount: $("#resultCount"),
 
-  // Inline status popup elements
+  // Inline status popup
   statusPopup: $("#statusPopup"),
   statusDropdown: $("#statusDropdown"),
   statusCustomInput: $("#statusCustomInput"),
   statusCancel: $("#statusCancel"),
   statusSave: $("#statusSave"),
+
+  // Edit modal (right click)
+  editScrim: $("#editScrim"),
+  editModal: $("#editModal"),
+  edit_title: $("#edit_title"),
+  edit_chapter: $("#edit_chapter"),
+  edit_status: $("#edit_status"),
+  edit_custom_status: $("#edit_custom_status"),
+  edit_url: $("#edit_url"),
+  edit_cover: $("#edit_cover"),
+  editCancel: $("#editCancel"),
+  editSave: $("#editSave"),
 };
 
 // Footer Year
@@ -88,7 +100,8 @@ el.scrim.onclick = closeSidebar;
 let cache = [],
   userId = null,
   pendingDelete = null,
-  activeStatusId = null;
+  activeStatusId = null,
+  editingId = null;
 
 initAuth();
 
@@ -155,20 +168,15 @@ async function login() {
     email: e,
     password: p,
   });
-  if (error) {
-    toast(error.message, "danger");
-  }
+  if (error) toast(error.message, "danger");
 }
 
 async function signup() {
   const e = $("#email").value.trim(),
     p = $("#password").value.trim();
   const { error } = await supabase.auth.signUp({ email: e, password: p });
-  if (error) {
-    toast(error.message, "danger");
-  } else {
-    toast("Check your email to verify, then log in.", "success");
-  }
+  if (error) toast(error.message, "danger");
+  else toast("Check your email to verify, then log in.", "success");
 }
 
 // =====================================
@@ -255,6 +263,12 @@ function render(rows) {
       e.stopPropagation();
       openStatusPopup(statusEl, row.id, row.status || "Ongoing");
     };
+
+    // Right-click to edit
+    c.addEventListener("contextmenu", (e) => {
+      e.preventDefault();
+      openEditModal(row);
+    });
 
     const act = document.createElement("div");
     act.className = "actions";
@@ -387,11 +401,68 @@ el.delConfirm.onclick = async () => {
 };
 
 // =====================================
+// Edit Modal (Right-click)
+// =====================================
+function openEditModal(row) {
+  editingId = row.id;
+  el.edit_title.value = row.title || "";
+  el.edit_chapter.value = row.chapter || 0;
+  el.edit_status.value = ["Ongoing", "Completed", "On Hold"].includes(row.status)
+    ? row.status
+    : "Custom";
+  el.edit_custom_status.value =
+    el.edit_status.value === "Custom" ? row.status || "" : "";
+  el.edit_custom_status.style.display =
+    el.edit_status.value === "Custom" ? "block" : "none";
+  el.edit_url.value = row.url || "";
+  el.edit_cover.value = row.cover_url || "";
+  el.editScrim.classList.add("show");
+  el.editModal.classList.add("show");
+}
+
+function closeEditModal() {
+  el.editScrim.classList.remove("show");
+  el.editModal.classList.remove("show");
+  editingId = null;
+}
+el.editCancel.onclick = closeEditModal;
+el.editScrim.onclick = closeEditModal;
+
+el.edit_status.onchange = () => {
+  if (el.edit_status.value === "Custom") {
+    el.edit_custom_status.style.display = "block";
+  } else {
+    el.edit_custom_status.style.display = "none";
+  }
+};
+
+el.editSave.onclick = async () => {
+  if (!editingId) return;
+
+  let newStatus = el.edit_status.value;
+  if (newStatus === "Custom") {
+    newStatus = el.edit_custom_status.value.trim() || "Custom";
+  }
+
+  const updates = {
+    title: el.edit_title.value.trim(),
+    chapter: Number(el.edit_chapter.value) || 0,
+    status: newStatus,
+    url: el.edit_url.value.trim(),
+    cover_url: el.edit_cover.value.trim(),
+  };
+
+  await supabase.from("manga").update(updates).eq("id", editingId);
+  closeEditModal();
+  loadData();
+  toast("Entry updated successfully", "success");
+};
+
+// =====================================
 // Inline Status Popup
 // =====================================
 function openStatusPopup(targetEl, id, currentStatus) {
   activeStatusId = id;
-
   el.statusDropdown.value = ["Ongoing", "Completed", "On Hold"].includes(currentStatus)
     ? currentStatus
     : "Custom";
@@ -403,34 +474,27 @@ function openStatusPopup(targetEl, id, currentStatus) {
   const rect = targetEl.getBoundingClientRect();
   const sx = window.scrollX || document.documentElement.scrollLeft;
   const sy = window.scrollY || document.documentElement.scrollTop;
-
   let top = rect.bottom + sy + 6;
   let left = rect.left + sx;
   const approxH = 160;
   if (top + approxH > sy + window.innerHeight) top = rect.top + sy - approxH - 6;
-
   const maxLeft = sx + window.innerWidth - 240;
   left = Math.min(left, maxLeft);
-
   el.statusPopup.style.top = `${top}px`;
   el.statusPopup.style.left = `${left}px`;
   el.statusPopup.classList.remove("hidden");
-
   if (el.statusDropdown.value === "Custom") el.statusCustomInput.focus();
   else el.statusDropdown.focus();
 }
-
 function closeStatusPopup() {
   el.statusPopup.classList.add("hidden");
   activeStatusId = null;
 }
-
 el.statusDropdown.onchange = () => {
   const isCustom = el.statusDropdown.value === "Custom";
   el.statusCustomInput.style.display = isCustom ? "block" : "none";
   if (isCustom) el.statusCustomInput.focus();
 };
-
 el.statusSave.onclick = async (e) => {
   e.stopPropagation();
   if (!activeStatusId) return;
@@ -443,14 +507,13 @@ el.statusSave.onclick = async (e) => {
   loadData();
   toast("Status updated successfully", "success");
 };
-
 el.statusCancel.onclick = (e) => {
   e.stopPropagation();
   closeStatusPopup();
 };
 
 // =====================================
-// Toast Notifications
+// Toasts
 // =====================================
 function toast(msg, type) {
   const t = document.createElement("div");
