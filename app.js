@@ -2,8 +2,7 @@
 // Supabase Client Setup
 // =====================================
 const SUPABASE_URL = "https://qdbfokgiwrococaxifkn.supabase.co";
-const SUPABASE_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYmZva2dpd3JvY29jYXhpZmtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNDU0MTcsImV4cCI6MjA3NzkyMTQxN30.rQz9t-NnU_Ahn-8avkUlhry4BFYyw6PVfgZNo-KFK1A";
+const SUPABASE_KEY ="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFkYmZva2dpd3JvY29jYXhpZmtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjIzNDU0MTcsImV4cCI6MjA3NzkyMTQxN30.rQz9t-NnU_Ahn-8avkUlhry4BFYyw6PVfgZNo-KFK1A";
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (s, p = document) => p.querySelector(s);
@@ -57,6 +56,13 @@ const el = {
   edit_cover: $("#edit_cover"),
   editCancel: $("#editCancel"),
   editSave: $("#editSave"),
+
+  // Set chapter modal
+  setScrim: $("#setScrim"),
+  setModal: $("#setModal"),
+  setInput: $("#setInput"),
+  setCancel: $("#setCancel"),
+  setSave: $("#setSave"),
 };
 
 // Footer Year
@@ -95,13 +101,64 @@ el.scrim.onclick = closeSidebar;
 })();
 
 // =====================================
+// Add Modal
+// =====================================
+function openAddModal() {
+  el.modalScrim.classList.add("show");
+  el.addModal.classList.add("show");
+}
+
+function closeAddModal() {
+  el.modalScrim.classList.remove("show");
+  el.addModal.classList.remove("show");
+}
+
+el.cancelAdd.onclick = closeAddModal;
+el.modalScrim.onclick = closeAddModal;
+
+el.saveAdd.onclick = async () => {
+  const title = el.m_title.value.trim();
+  if (!title) return toast("Title is required", "danger");
+
+  const chapter = Number(el.m_chapter.value) || 0;
+  const status = el.m_status.value;
+  const url = el.m_url.value.trim() || null;
+  const cover = el.m_cover.value.trim() || null;
+
+  let source = null;
+  if (url) {
+    try {
+      source = new URL(url).hostname;
+    } catch {
+      source = null;
+    }
+  }
+
+  await supabase.from("manga").insert({
+    user_id: userId,
+    title,
+    chapter,
+    status,
+    url,
+    cover_url: cover,
+    source,
+  });
+
+  closeAddModal();
+  loadData();
+  toast("Series added successfully", "success");
+};
+
+
+// =====================================
 // Auth System
 // =====================================
 let cache = [],
   userId = null,
   pendingDelete = null,
   activeStatusId = null,
-  editingId = null;
+  editingId = null,
+  activeSetId = null;
 
 initAuth();
 
@@ -264,7 +321,6 @@ function render(rows) {
       openStatusPopup(statusEl, row.id, row.status || "Ongoing");
     };
 
-    // Right-click to edit
     c.addEventListener("contextmenu", (e) => {
       e.preventDefault();
       openEditModal(row);
@@ -279,10 +335,7 @@ function render(rows) {
       del = btnSvg();
 
     plus.onclick = () => updChap(row.id, (row.chapter || 0) + 1);
-    set.onclick = () => {
-      const v = prompt("Set chapter:", row.chapter);
-      if (v !== null) updChap(row.id, Number(v));
-    };
+    set.onclick = () => openSetModal(row.id, row.chapter);
     done.onclick = () => markDone(row.id);
     del.onclick = () => openDel(row.id);
 
@@ -330,50 +383,33 @@ async function markDone(id) {
 }
 
 // =====================================
-// Add Modal
+// Set Chapter Modal
 // =====================================
-function openAddModal() {
-  el.modalScrim.classList.add("show");
-  el.addModal.classList.add("show");
+function openSetModal(id, currentChapter) {
+  activeSetId = id;
+  el.setInput.value = currentChapter || 0;
+  el.setScrim.classList.add("show");
+  el.setModal.classList.add("show");
+  el.setInput.focus();
 }
-function closeAddModal() {
-  el.modalScrim.classList.remove("show");
-  el.addModal.classList.remove("show");
+
+function closeSetModal() {
+  el.setScrim.classList.remove("show");
+  el.setModal.classList.remove("show");
+  activeSetId = null;
 }
-el.cancelAdd.onclick = closeAddModal;
-el.modalScrim.onclick = closeAddModal;
 
-el.saveAdd.onclick = async () => {
-  const title = el.m_title.value.trim();
-  if (!title) return toast("Title is required", "danger");
+el.setCancel.onclick = closeSetModal;
+el.setScrim.onclick = closeSetModal;
 
-  const chapter = Number(el.m_chapter.value) || 0;
-  const status = el.m_status.value;
-  const url = el.m_url.value.trim() || null;
-  const cover = el.m_cover.value.trim() || null;
+el.setSave.onclick = async () => {
+  const newVal = Number(el.setInput.value);
+  if (!activeSetId || isNaN(newVal)) return toast("Invalid chapter", "danger");
 
-  let source = null;
-  if (url) {
-    try {
-      source = new URL(url).hostname;
-    } catch {
-      source = null;
-    }
-  }
-
-  await supabase.from("manga").insert({
-    user_id: userId,
-    title,
-    chapter,
-    status,
-    url,
-    cover_url: cover,
-    source,
-  });
-
-  closeAddModal();
+  await supabase.from("manga").update({ chapter: newVal }).eq("id", activeSetId);
+  closeSetModal();
   loadData();
-  toast("Series added successfully", "success");
+  toast("Chapter updated successfully", "success");
 };
 
 // =====================================
