@@ -54,7 +54,7 @@ Then build the APK inside Android Studio.
 
 👨‍💻 Author
 
-Developed by: Aditya
+Developed by: Aditya Prasad
 Project Type: Personal / Learning / Experimental
 Status: Ongoing
 
