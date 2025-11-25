@@ -1,0 +1,18 @@
+{
+  "name": "Manga Library",
+  "short_name": "Manga",
+  "start_url": "/manga-tracker-cloud/index.html",
+  "scope": "/manga-tracker-cloud/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1020",
+  "theme_color": "#7aa2ff",
+  "icons": [
+    {
+      "src": "/manga-tracker-cloud/logo.jpg",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
