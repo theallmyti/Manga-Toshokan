@@ -43,17 +43,22 @@ def get_cover_filename(mangadex_id):
 def main():
     print("Fetching manga with missing covers...")
     
-    # 1. Get manga with current cover_url is NULL or empty
-    response = supabase.table("manga").select("*").is_("cover_url", "null").execute()
+    # 1. Get ALL manga (safest way to catch nulls chains empty strings)
+    response = supabase.table("manga").select("*").execute()
     manga_list = response.data
     
-    print(f"Found {len(manga_list)} entries to process.")
+    print(f"Found {len(manga_list)} entries. Checking for missing covers...")
     
     for manga in manga_list:
         mid = manga["id"]
         title = manga["title"]
         md_id = manga.get("mangadex_id")
-        
+        current_cover = manga.get("cover_url")
+
+        # Skip if cover already exists (and is not a placeholder/broken)
+        if current_cover and len(current_cover) > 10:
+             continue
+
         if not md_id:
             print(f"Skipping '{title}' (No MangaDex ID)")
             continue
