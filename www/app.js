@@ -167,6 +167,55 @@
     activeSetId = null;
 
   initAuth();
+  checkUpdate();
+
+  // =====================================
+  // Update System
+  // =====================================
+  const CURRENT_VERSION_CODE = 1; // Increment this when building new APKs
+
+  async function checkUpdate() {
+    try {
+      const { data, error } = await supabase
+        .from("app_versions")
+        .select("*")
+        .order("version_code", { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data) return;
+
+      if (data.version_code > CURRENT_VERSION_CODE) {
+        showUpdateModal(data);
+      }
+    } catch (err) {
+      console.error("Update check failed", err);
+    }
+  }
+
+  function showUpdateModal(versionData) {
+    const modal = $("#updateModal");
+    const scrim = $("#updateScrim");
+    const versionSpan = $("#newVersionNum");
+    const btn = $("#updateNowBtn");
+    const later = $("#updateLaterBtn");
+
+    if (!modal) return;
+
+    versionSpan.textContent = versionData.version_name;
+
+    modal.classList.add("show");
+    scrim.classList.add("show");
+
+    btn.onclick = () => {
+      window.open(versionData.download_url, "_system");
+    };
+
+    later.onclick = () => {
+      modal.classList.remove("show");
+      scrim.classList.remove("show");
+    };
+  }
 
   async function initAuth() {
     const {

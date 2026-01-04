@@ -613,3 +613,18 @@ body.light .form-select {
 .mb-2 {
   margin-bottom: 8px;
 }
+
+.btn-text {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 8px;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.btn-text:hover {
+  color: var(--fg);
+}
