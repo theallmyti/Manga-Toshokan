@@ -79,11 +79,10 @@ def search_mangadex(title: str):
     return None
 
 def main():
-    print("Fetching manga without MangaDex IDs...")
+    print("Fetching all manga to standardise URLs...")
     
-    # Fetch all, then filter in python or query with filter
-    # Supabase filter for null: .is_("mangadex_id", "null")
-    response = supabase.table("manga").select("*").is_("mangadex_id", "null").execute()
+    # Fetch all manga (small library size allows this)
+    response = supabase.table("manga").select("*").execute()
     manga_list = response.data
     
     print(f"Found {len(manga_list)} entries to process.")
@@ -93,24 +92,41 @@ def main():
     for manga in manga_list:
         mid = manga["id"]
         title = manga["title"]
+        mangadex_id = manga.get("mangadex_id")
+        current_url = manga.get("url") or ""
         
-        print(f"Searching for '{title}'...")
+        # 1. If ID is missing, search for it
+        if not mangadex_id:
+            print(f"[{title}] Missing ID. Searching...")
+            mangadex_id = search_mangadex(title)
+            if mangadex_id:
+                print(f"  -> Found ID: {mangadex_id}")
+                # We will update DB below
+            else:
+                print(f"  -> No match found.")
+                continue # Cannot fix URL without ID
         
-        mangadex_id = search_mangadex(title)
+        # 2. Check if URL needs fixing
+        # It needs fixing if:
+        #   a) It matches limits (we just found the ID)
+        #   b) The current URL is NOT a mangadex URL
+        expected_url = f"https://mangadex.org/title/{mangadex_id}"
         
-        if mangadex_id:
-            print(f"  -> Found ID: {mangadex_id}")
+        if current_url != expected_url:
+            print(f"[{title}] Updating URL...")
+            print(f"  Old: {current_url}")
+            print(f"  New: {expected_url}")
             
-            # Update DB
             supabase.table("manga").update({
-                "mangadex_id": mangadex_id
+                "mangadex_id": mangadex_id,
+                "url": expected_url
             }).eq("id", mid).execute()
             
             updated_count += 1
         else:
-            print(f"  -> No match found.")
-            
-        time.sleep(1.1) # Be nice to API limits (2-5 req/sec usually allowed, staying safe)
+             print(f"[{title}] URL already correct.")
+
+        time.sleep(0.5) 
 
     print(f"Done. Updated {updated_count} entries.")
 
