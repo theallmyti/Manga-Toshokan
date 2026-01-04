@@ -1,0 +1,11 @@
+{
+  "appId": "com.yourname.mangatracker",
+  "appName": "MangaTracker",
+  "webDir": "www",
+  "bundledWebRuntime": false,
+  "plugins": {
+    "CapacitorHttp": {
+      "enabled": true
+    }
+  }
+}

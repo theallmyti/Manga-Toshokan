@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Manga Toshokan</string>
+    <string name="title_activity_main">Manga Toshokan</string>
+    <string name="package_name">MangaToshokan</string>
+    <string name="custom_url_scheme">com.aditya.MangaToshokan</string>
+</resources>
