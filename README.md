@@ -8,7 +8,7 @@ A lightweight manga tracking and library web app with an Android APK version, bu
 
 ✨ Features:
 - Track your manga reading progress
-- Clean and minimal UI (no clutter
+- Clean and minimal UI (no clutter)
 - Works as a Web App and Android APK
 - Offline support using Service Worker
 - Fast loading and responsive on mobile
